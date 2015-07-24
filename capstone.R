@@ -93,7 +93,7 @@ my_corpus <- Corpus(VectorSource(en_samples))
 inspect(my_corpus)
 my_corpus <- tm_map(my_corpus, removeNumbers)
 my_corpus <- tm_map(my_corpus, removePunctuation)
-my_corpus <- tm_map(my_corpus, removeWords, stopwords("english"))
+#my_corpus <- tm_map(my_corpus, removeWords, stopwords("english"))
 my_corpus <- tm_map(my_corpus, content_transformer(tolower))
 my_corpus <- tm_map(my_corpus, stripWhitespace)
 #my_corpus <- tm_map(my_corpus, stemDocument) # removes "es", "ed", and "s", etc
@@ -141,7 +141,6 @@ barplot(table_word_count_pairs, main ="Freq of Words", ylab ="words", xlab ="fre
 table_word_count_pairs
 # end word pairs
 
-# convert to csv
 m <- as.matrix(dtm)
 m
 dim(m)
@@ -177,8 +176,41 @@ wordcloud(names(freq), freq, min.freq=2)
 ## end works
 
 
+# task 3 *********************************** build model for relationship between words.  1st step in building a predictive text app
+# model is n-gram - 
+install.packages("ngram")
+library(ngram)
+letters[20]
+concat(letters)[1]
+
+x <- "A B A C A B B"
+df_char <- as.character(dataframe)
+ng <- ngram(df_char, n=2)
+get.ngrams(ng)[1781]
+get.ngrams(ng)
+split <-  unlist(strsplit(get.ngrams(ng)[1781]," "))
+?character
+dataframe[1]
+df_char[3]
+
+predict_next_word <- function(word, the_ng){
+    for (i in 1:length(get.ngrams(the_ng))){
+     first_word <- (unlist(strsplit(get.ngrams(ng)[i]," "))[1])
+     second_word <- (unlist(strsplit(get.ngrams(ng)[i]," "))[2])
+     if (word == first_word){
+     print (second_word)
+     }
+    }
+}
+predict_next_word("important", ng)
 
 
+        unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+print(ng, full=T) # ngram detail
+babble(ng,10) # randomizes ngram
+get.string(ng) # shows original character string
+ng
 
 
 
