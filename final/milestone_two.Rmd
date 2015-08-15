@@ -1,0 +1,519 @@
+---
+title: "SwiftKey Exploratory Analysis"
+author: "Josh Janzen"
+date: "July 24, 2015"
+output: html_document
+---
+</br>
+
+### Data Load and File Size
+```{r initial, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}
+setwd("~/JHDataScience/capstone/final")
+
+# file size in MB for each data source
+blogs_size_mb <- file.info("./en_US/en_US.blogs.txt")$size/1024^2
+paste('Blogs File Size:',formatC(blogs_size_mb, digits = 1, big.mark=',', format = 'f' ),'MB')
+
+news_size_mb <- file.info("./en_US/en_US.news.txt")$size/1024^2
+paste('News File Size:',formatC(news_size_mb, digits = 1, big.mark=',', format = 'f' ),'MB')
+
+twitter_size_mb <- file.info("./en_US/en_US.twitter.txt")$size/1024^2
+paste('Twitter File Size:',formatC(twitter_size_mb, digits = 1, big.mark=',', format = 'f' ),'MB')
+      
+```
+
+### Word Counts
+Due to size of files, decided to sample 1000 lines from each source
+
+```{r sampling, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+
+con_en_blogs <- file("./en_US/en_US.blogs.txt", "r") # read full blog file
+en_blogs <- readLines(con_en_blogs) # read entire file
+close(con_en_blogs) # close connection
+
+con_en_news <- file("./en_US/en_US.news.txt", "r") 
+en_news <- readLines(con_en_news)
+close(con_en_news)
+
+con_en_twitter <- file("./en_US/en_US.twitter.txt", "r") 
+en_twitter <- readLines(con_en_twitter)
+close(con_en_twitter)
+
+set.seed(100)
+
+en_blogs_sample_num <- sample(en_blogs,100000,replace=F) # sample 1000 lines
+en_news_sample_num <- sample(en_news,100000,replace=F)
+en_twitter_sample_num <- sample(en_twitter,100000,replace=F)
+
+en_blogs_sample_word_count <- colSums(as.matrix(sapply(strsplit(en_blogs_sample_num, " "), length)))
+paste('# Words from from Blogs Sample:',formatC(en_blogs_sample_word_count, digits = 0, big.mark=',', format = 'f' ),'words')
+
+en_news_sample_word_count <- colSums(as.matrix(sapply(strsplit(en_news_sample_num, " "), length)))
+paste('# Words from from News Sample:',formatC(en_news_sample_word_count, digits = 0, big.mark=',', format = 'f' ),'words')
+
+en_twitter_sample_word_count <- colSums(as.matrix(sapply(strsplit(en_twitter_sample_num, " "), length)))
+paste('# Words from from Twitter Sample:',formatC(en_twitter_sample_word_count, digits = 0, big.mark=',', format = 'f' ),'words')
+
+# write the samples to new files 
+fileConn<-file("./en_US/samples/sample_en_US.blogs.txt") # create new file
+writeLines(en_blogs_sample_num, fileConn) # write the 1000 sampled lines
+close(fileConn) # close new file connection
+
+fileConn<-file("./en_US/samples/sample_en_US.news.txt")
+writeLines(en_news_sample_num, fileConn)
+close(fileConn)
+
+fileConn<-file("./en_US/samples/sample_en_US.twitter.txt")
+writeLines(en_twitter_sample_num, fileConn)
+close(fileConn)
+```
+
+### Exploratory Charts and Summary
+```{r charts, message=FALSE, warning=FALSE, eval=TRUE, include=FALSE}
+library(ggplot2)
+setwd("~/JHDataScience/capstone/final")
+# get each of the new sampled files
+con_en_blog_sample <- file("./en_US/samples/sample_en_US.blogs.txt", "r") # read sample blog file
+#con_en_blog_sample <- file("./en_US/en_US.blogs.txt", "r") # read sample blog file
+en_blog_sample <- readLines(con_en_blog_sample)
+close(con_en_blog_sample)
+
+con_en_news_sample <- file("./en_US/samples/sample_en_US.news.txt", "r") # read sample news file
+#con_en_news_sample <- file("./en_US/en_US.news.txt", "r") # read sample news file
+en_news_sample <- readLines(con_en_news_sample)
+close(con_en_news_sample)
+
+con_en_twitter_sample <- file("./en_US/samples/sample_en_US.twitter.txt", "r") # read sample twitter file
+#con_en_twitter_sample <- file("./en_US/en_US.twitter.txt", "r") # read sample twitter file
+en_twitter_sample <- readLines(con_en_twitter_sample)
+close(con_en_twitter_sample)
+
+# plot word count for each of the 1000 samples
+en_blog_word_count <- sapply(strsplit(en_blog_sample, " "), length)
+blog_word_count_chart <- qplot(en_blog_word_count, main = "Blog Word Count", xlab = "# of words", ylab = "frequency") + xlim (0, 100)
+
+en_news_word_count <- sapply(strsplit(en_news_sample, " "), length)
+news_word_count_chart <- qplot(en_news_word_count, main = "News Word Count", xlab = "# of words", ylab = "frequency") + xlim (0, 100)
+
+en_twitter_word_count <- sapply(strsplit(en_twitter_sample, " "), length)
+twitter_word_count_chart <- qplot(en_twitter_word_count, main = "Twitter Word Count", xlab = "# of words", ylab = "frequency") + xlim (0, 100)
+
+library("gridExtra")
+grid.arrange(blog_word_count_chart, news_word_count_chart, twitter_word_count_chart)
+
+# to summarize words counts
+summary(en_blog_word_count)
+summary(en_news_word_count)
+summary(en_twitter_word_count)
+
+```
+
+### Creating the Corpus and Initial Review
+```{r corpus, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
+setwd("~/JHDataScience/capstone/final")
+# get each of the new sampled files
+#con_en_blog_sample <- file("./en_US/samples/sample_en_US.blogs.txt", "r") # read sample blog file
+con_en_blog_sample <- file("./en_US/en_US.blogs.txt", "r") # read sample blog file
+en_blog_sample <- readLines(con_en_blog_sample)
+close(con_en_blog_sample)
+
+#con_en_news_sample <- file("./en_US/samples/sample_en_US.news.txt", "r") # read sample news file
+con_en_news_sample <- file("./en_US/en_US.news.txt", "r") # read sample news file
+en_news_sample <- readLines(con_en_news_sample)
+close(con_en_news_sample)
+
+#con_en_twitter_sample <- file("./en_US/samples/sample_en_US.twitter.txt", "r") # read sample twitter file
+con_en_twitter_sample <- file("./en_US/en_US.twitter.txt", "r") # read sample twitter file
+en_twitter_sample <- readLines(con_en_twitter_sample)
+close(con_en_twitter_sample)
+
+# compbine all three samples for corpus
+#en_samples <- rbind(en_blog_sample, en_news_sample, en_twitter_sample)
+en_samples <- paste(en_blog_sample, en_news_sample, en_twitter_sample)
+#head(en_samples)
+set.seed(123)
+en_samples2 <- sample(en_samples, 350000,replace=F) # 250,000 worked
+
+library(tm)
+my_corpus <- Corpus(VectorSource(en_samples2))
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+my_corpus <- tm_map(my_corpus, toSpace, "/|@|\\|")
+# following steps clean the corpus
+my_corpus <- tm_map(my_corpus, removeNumbers)
+my_corpus <- tm_map(my_corpus, removePunctuation)
+#my_corpus <- tm_map(my_corpus, removeWords, stopwords("english"))
+my_corpus <- tm_map(my_corpus, content_transformer(tolower))
+my_corpus <- tm_map(my_corpus, stripWhitespace)
+
+my_corpus_copy <- my_corpus
+my_corpus <- my_corpus_copy
+
+#install.packages("SnowballC")
+library(SnowballC)
+# Remove profanity 
+# http://www.cs.cmu.edu/~biglou/resources/bad-words.txt
+#bad_words <- file("./en_US/bad-words.txt", "r")
+#profanity_vector <- VectorSource(readLines(bad_words))
+#close(bad_words)
+#my_corpus <- tm_map(my_corpus, removeWords, profanity_vector, mc.cores=1) 
+#my_corpus <- tm_map(my_corpus, stemDocument) # removes "es", "ed", and "s", etc
+
+profanity_path <-paste("./en_US/bad-words.txt" ,sep="")
+my_corpus <- tm_map(my_corpus, removeWords, profanity_path, mc.cores=1)
+
+#badwordsvector <- VectorSource(readLines("badwords.txt"))
+#corpus <- tm_map(corpus, removeWords, badwordsvector,lazy=TRUE) 
+
+# create a documnet term matrix
+#dtm <- DocumentTermMatrix(my_corpus)
+# of the 3,000 blogs, new articles, and tweets, we have 13,819 unique words
+#freq <- colSums(as.matrix(dtm))
+#ord <- order(freq)
+#freq[tail(ord,30)] # top 30 words
+#head(table(freq), 15)  # over 8k of the 13,819 words occur 1 time
+#table_word_count <- table(freq) # table of count of words
+#barplot(table_word_count, main ="Freq of Words", ylab ="unique words", xlab ="freq of word", col = "blue")
+
+```
+
+### Creating the Wordpairs
+```{r prediction model, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE }
+#corpus_dataframe<-data.frame(text=unlist(sapply(my_corpus, `[`, "content")), stringsAsFactors=F)
+setwd("~/JHDataScience/capstone/final")
+# get each of the new sampled files
+#con_en_blog_sample <- file("./en_US/samples/sample_en_US.blogs.txt", "r") # read sample blog file
+con_en_blog_sample <- file("./en_US/en_US.blogs.txt", "r") # read sample blog file
+en_blog_sample <- readLines(con_en_blog_sample)
+close(con_en_blog_sample)
+
+#con_en_news_sample <- file("./en_US/samples/sample_en_US.news.txt", "r") # read sample news file
+con_en_news_sample <- file("./en_US/en_US.news.txt", "r") # read sample news file
+en_news_sample <- readLines(con_en_news_sample)
+close(con_en_news_sample)
+
+#con_en_twitter_sample <- file("./en_US/samples/sample_en_US.twitter.txt", "r") # read sample twitter file
+con_en_twitter_sample <- file("./en_US/en_US.twitter.txt", "r") # read sample twitter file
+en_twitter_sample <- readLines(con_en_twitter_sample)
+close(con_en_twitter_sample)
+
+# compbine all three samples for corpus
+#en_samples <- rbind(en_blog_sample, en_news_sample, en_twitter_sample)
+en_samples <- paste(en_blog_sample, en_news_sample, en_twitter_sample)
+#head(en_samples)
+set.seed(123)
+en_samples2 <- sample(en_samples, 325000,replace=F) #250,000 works
+
+library(tm)
+my_corpus <- Corpus(VectorSource(en_samples2))
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+my_corpus <- tm_map(my_corpus, toSpace, "/|@|\\|")
+# following steps clean the corpus
+my_corpus <- tm_map(my_corpus, removeNumbers)
+my_corpus <- tm_map(my_corpus, removePunctuation)
+#my_corpus <- tm_map(my_corpus, removeWords, stopwords("english"))
+my_corpus <- tm_map(my_corpus, content_transformer(tolower))
+my_corpus <- tm_map(my_corpus, stripWhitespace)
+
+#my_corpus_copy <- my_corpus
+#my_corpus <- my_corpus_copy
+
+#install.packages("SnowballC")
+library(SnowballC)
+# Remove profanity 
+# http://www.cs.cmu.edu/~biglou/resources/bad-words.txt
+#bad_words <- file("./en_US/bad-words.txt", "r")
+#profanity_vector <- VectorSource(readLines(bad_words))
+#close(bad_words)
+#my_corpus <- tm_map(my_corpus, removeWords, profanity_vector, mc.cores=1) 
+#my_corpus <- tm_map(my_corpus, stemDocument) # removes "es", "ed", and "s", etc
+
+profanity_path <-paste("./en_US/bad-words.txt" ,sep="")
+my_corpus <- tm_map(my_corpus, removeWords, profanity_path, mc.cores=1)
+save(my_corpus, file = "./en_US/ngrams/my_corpus.RData")
+#### prediction function (after corpus create, start here)
+library(tm); 
+library(slam)  # used for rollup function #http://stackoverflow.com/questions/21921422/row-sum-for-large-term-document-matrix-simple-triplet-matrix-tm-package
+bigramTokenizer <-
+    function(x)
+        unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+trigramTokenizer <-
+    function(x)
+        unlist(lapply(ngrams(words(x), 3), paste, collapse = " "), use.names = FALSE)
+
+fourgramTokenizer <-
+    function(x)
+        unlist(lapply(ngrams(words(x), 4), paste, collapse = " "), use.names = FALSE)
+
+
+tdm_bigram <- TermDocumentMatrix(my_corpus, control = list(tokenize = bigramTokenizer))
+save(tdm_bigram, file = "./en_US/ngrams/tdm_bigram.RData")
+load("./en_US/ngrams/tdm_bigram.RData")
+tdm_bigram
+tdm_bigram <- removeSparseTerms(tdm_bigram, 0.99999) #higher the number, less removed.  0.99999 worked but too big? 
+tdm_bigram_test <- removeSparseTerms(tdm_bigram, 0.9999) 
+tdm_bigram_test
+
+top_bigram <- rollup(tdm_bigram, 2, na.rm=TRUE, FUN = sum)
+tdm_bigram.matrix <- as.matrix(top_bigram)
+
+#tdm_bigram.matrix  <- as.matrix(tdm_bigram)
+#head(top_bigram)
+#top_bigram <- rowSums(tdm_bigram.matrix)
+
+#ord <- order(top_bigram)
+#top_bigram[tail(ord,30)] # top 30 word pairs
+#table_word_count_pairs <- table(top_bigram) # table of count of words
+#barplot(table_word_count_pairs, main ="Freq of Word Pairs", ylab ="word pair", xlab ="freq of word pairs", col = "green")
+#tdm_bigram
+
+tdm_trigram <- TermDocumentMatrix(my_corpus, control = list(tokenize = trigramTokenizer))
+save(tdm_trigram, file = "./en_US/ngrams/tdm_trigram.RData")
+tdm_trigram <- removeSparseTerms(tdm_trigram, 0.99999) #98% sparsity
+tdm_trigram_test <- removeSparseTerms(tdm_trigram, 0.9999) #98% sparsity
+top_trigram <- rollup(tdm_trigram_test, 2, na.rm=TRUE, FUN = sum)
+tdm_trigram.matrix <- as.matrix(top_trigram)
+tdm_trigram_test
+
+tdm_fourgram <- TermDocumentMatrix(my_corpus, control = list(tokenize = fourgramTokenizer))
+save(tdm_fourgram, file = "./en_US/ngrams/tdm_fourgram.RData")
+tdm_fourgram <- removeSparseTerms(tdm_fourgram, 0.99999) #98% sparsity
+top_fourgram <- rollup(tdm_fourgram, 2, na.rm=TRUE, FUN = sum)
+tdm_fourgram
+tdm_fourgram.matrix <- as.matrix(top_fourgram)
+
+#tdm_fourgram.matrix <- as.matrix(tdm_fourgram)
+#top_fourgram <- rowSums(tdm_fourgram.matrix)
+
+bigram_index <- do.call(rbind, strsplit(paste(rownames(tdm_bigram.matrix), tdm_bigram.matrix), " "))
+trigram_index <- do.call(rbind, strsplit(paste(rownames(tdm_trigram.matrix), tdm_trigram.matrix), " "))
+fourgram_index <- do.call(rbind, strsplit(paste(rownames(tdm_fourgram.matrix), tdm_fourgram.matrix), " "))
+
+#head(trigram_index)
+dim(bigram_index)
+#trigram_index
+dim(trigram_index)
+dim(fourgram_index)
+head(fourgram_index)
+#fourgram_index
+#fileConn<-file("./en_US/ngrams/bigram.txt")
+#writeLines(bigram_index, fileConn)
+#close(fileConn)
+
+#bigram_file <- file("./en_US/ngrams/bigram.txt", "r") # read sample twitter file
+#bigram_index <- readLines(bigram_file)
+#close(bigram_file)
+
+#library(MASS)
+#write.matrix(format(trigram_index, scientific=FALSE), 
+#               file = paste("./en_US/ngrams/", "trigram.csv", sep="/"), sep=",")
+
+#copy_fourgram <- fourgram_index
+save(bigram_index, file = "./en_US/ngrams/bigram_index.RData")
+save(trigram_index, file = "./en_US/ngrams/trigram_index_small.RData")
+save(fourgram_index, file = "./en_US/ngrams/fourgram_index.RData")
+
+## start here 8/15/15
+setwd("~/JHDataScience/capstone/final")
+load("./en_US/ngrams/bigram_index.RData")
+load("./en_US/ngrams/trigram_index_small.RData")
+load("./en_US/ngrams/fourgram_index.RData")
+head(bigram_index)
+head(trigram_index)
+head(fourgram_index)
+#trigram_index[,1]
+#fourgram_index[,5]
+#class(fourgram_index)
+
+predict.next.word <- function(word, ng_matrix){
+    ngram_df <- data.frame(predicted=character(), count = numeric(), stringsAsFactors=FALSE)
+    col_ng_matrix <- nrow(ng_matrix)
+    #col_ng_matrix <- nrow(bigram_index)
+    #word <- c("a", "small", "area")
+    word_match_one <- word[1]
+    word_match_two <- word[2]
+    word_match_three <- word[3]
+    if(ncol(ng_matrix)==3){
+        cond_one <- c(word_match_one == ng_matrix[,1])
+        for (i in 1:col_ng_matrix){
+            if (cond_one[i]){
+                second_word <- ng_matrix[,2][i]
+                count_word <- ng_matrix[,3][i]
+                matched_factor <- structure(c(second_word, count_word), .Names = c("predicted", "count"))
+                ngram_df[i,] <- as.list(matched_factor)
+                } } }  
+     if(ncol(ng_matrix)==4){
+        cond_two <- c(word_match_one == ng_matrix[,1] & word_match_two == ng_matrix[,2])
+        for (i in 1:col_ng_matrix){
+            if (cond_two[i]){
+                third_word <- ng_matrix[,3][i]
+                count_word <- ng_matrix[,4][i]
+                matched_factor <- structure(c(third_word, count_word), .Names = c("predicted", "count"))
+                ngram_df[i,] <- as.list(matched_factor)
+                } } }  
+     if(ncol(ng_matrix)==5){
+        cond_three <- c(word_match_one == ng_matrix[,1] & word_match_two == ng_matrix[,2] & word_match_three == ng_matrix[,3])
+        for (i in 1:col_ng_matrix){
+            if (cond_three[i]){
+                fourth_word <- ng_matrix[,4][i]
+                count_word <- ng_matrix[,5][i]
+                matched_factor <- structure(c(fourth_word, count_word), .Names = c("predicted", "count"))
+                ngram_df[i,] <- as.list(matched_factor)
+                } } }  
+    ngram_df <- transform(ngram_df, count = as.numeric(count))
+    return (ngram_df[order(ngram_df$count, decreasing = TRUE),])  
+    }
+
+#test_bigram_word <- c("a")
+#system.time(bigram_index[,1][100])
+#trigram_index[77][3]
+#trigram_index[1504,]
+#class(bigram_index)
+
+# abandon 
+system.time(predict.next.word(c("abandon"), bigram_index))
+test_bigram <- predict.next.word(c("abandon"), bigram_index)
+head(test_bigram, 150)
+test_bigram[1][1,] # top word
+
+system.time(predict.next.word(c("after", "the"), trigram_index))
+test_trigram <- predict.next.word(c("after", "the"), trigram_index)
+head(test_trigram,25)
+test_trigram[1,][1]
+
+system.time(predict.next.word(c("after", "the", "first"), fourgram_index))
+test_fourgram <- predict.next.word(c("after", "the", "first"), fourgram_index)
+head(test_fourgram,25)
+test_fourgram[1,][1]
+as.character(test_fourgram[1,][1]) # top word output as text
+1 - give x
+2- financial x
+3 - morning x
+4 stress
+5 picture
+6 account x
+7 hand
+8 top
+9 outside
+10 moveis
+
+```
+
+```{r wordpairs, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}
+# word pairs
+library(tm); 
+BigramTokenizer <-
+    function(x)
+        unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+tdm_pairs <- DocumentTermMatrix(my_corpus, control = list(tokenize = BigramTokenizer))
+tdm_pairs
+freq_pairs <- colSums(as.matrix(tdm_pairs))
+ord <- order(freq_pairs)
+freq_pairs[tail(ord,30)] # top 30 word pairs
+#freq_pairs[100]
+#head(table(freq_pairs), 15) 
+table_word_count_pairs <- table(freq_pairs) # table of count of words
+#barplot(table_word_count_pairs, main ="Freq of Word Pairs", ylab ="word pair", xlab ="freq of word pairs", col = #"green")
+freq <- sort(colSums(as.matrix(dtm)), decreasing = TRUE)
+head(freq,10)
+wf <- data.frame(word=names(freq), freq=freq)
+head(wf)
+data_ggplot <- subset(wf, freq>100) 
+#ggplot(data_ggplot, aes(word, freq)) + geom_bar(stat="identity") + theme(axis.text.x=element_text(angle=45,hjust=1))
+
+# works
+tdm_pairs.matrix <- as.matrix(tdm_pairs)
+top_pairs <- colSums(tdm_pairs.matrix)
+head(sort(top_pairs, decreasing = T),2)
+top_pairs[110]
+
+top_pairs_test <- structure(c(46, 42), .Names = c("i know", "i dont"))
+top_pairs_test
+
+tester <- unlist(strsplit(names(top_pairs)," "))
+tester[6]
+
+findFreqTerms(tdm_pairs)
+
+test_two <- do.call(rbind, strsplit(paste(names(top_pairs), top_pairs), " "))
+test_two[,1]
+# end works 
+
+# wordcloud
+library(wordcloud)
+set.seed(123)
+#wordcloud(names(freq), freq, min.freq=2)
+```
+
+```{r achieved, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}
+order_df <- predict.next.word(c("abandon"), bigram_index)
+head(order_df)
+top_word <- order_df[1,][1]
+as.character(top_word[,1])
+
+order_df[order(order_df$count, decreasing = TRUE),]
+
+order_df
+order_df[,2]
+
+test_new_predict
+
+test_new_predict <- predict_next_word(c("a", "woman"), trigram_index)
+test_new_predict
+
+bigram_index[,1][99]
+
+!is.na(word)
+test_factor <- structure(c(word,num_word), .Names = c("predicted", "count"))
+test_factor
+
+class(test_factor)
+test_df <- as.data.frame(as.list(test_factor))
+test_df <- (rbind(test_df, as.data.frame(as.list(test_factor))))
+test_df
+test_df <- transform(test_df, count = as.numeric(count))
+#sapply(test_df, class)
+
+
+test_matrix <- rbind(test_factor)
+test_matrix
+
+test_two[18]
+
+
+
+test_two[,1][10]
+tail(test_two[,1],10)
+tail(test_two[,2],10)
+tail(test_two[,3],10)
+
+predict_next_word("every", ng)
+library(RWeka)
+
+?findFreqTerms
+predict_next_word <- function(word, the_ng){
+    for (i in 1:length(get.ngrams(the_ng))){
+     first_word <- (unlist(strsplit(get.ngrams(the_ng)[i]," "))[1])
+     second_word <- (unlist(strsplit(get.ngrams(the_ng)[i]," "))[2])
+     if (word == first_word){
+     print (second_word)
+     }
+    }
+}
+
+
+
+unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+print(ng, full=T) # ngram detail
+babble(ng,10) # randomizes ngram
+get.string(ng) # shows original character string
+ng
+
+
+```
+
+</br>
+</br>

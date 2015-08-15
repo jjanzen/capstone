@@ -1,0 +1,191 @@
+---
+title: "SwiftKey Exploratory Analysis"
+author: "Josh Janzen"
+date: "July 24, 2015"
+output: html_document
+---
+</br>
+
+### Overview
+This exploratory analysis is to review the three sources (blogs, news, and twitter) of data for the SwiftKey John Hopkins Data Science capstone project.  The goal is to get a good understanding of the data structure, including size of files, word counts, line counts, basic data summary, exploratory charts, and inital review of the corpus.  
+</br>
+
+### Data Load and File Size
+
+```{r initial, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
+setwd("~/JHDataScience/capstone/final")
+
+# file size in MB for each data source
+blogs_size_mb <- file.info("./en_US/en_US.blogs.txt")$size/1024^2
+paste('Blogs File Size:',formatC(blogs_size_mb, digits = 1, big.mark=',', format = 'f' ),'MB')
+
+news_size_mb <- file.info("./en_US/en_US.news.txt")$size/1024^2
+paste('News File Size:',formatC(news_size_mb, digits = 1, big.mark=',', format = 'f' ),'MB')
+
+twitter_size_mb <- file.info("./en_US/en_US.twitter.txt")$size/1024^2
+paste('Twitter File Size:',formatC(twitter_size_mb, digits = 1, big.mark=',', format = 'f' ),'MB')
+      
+```
+
+#### Interpreting Initial Data Load 
+Each of the files are very large.  For exploratory and building initial models, will plan on sampling 1,000 rows from each source.  
+</br>
+
+### Word Counts
+Due to size of files, decided to sample 1000 lines from each source
+
+```{r sampling, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
+knitr::opts_chunk$set(cache=TRUE)
+
+con_en_blogs <- file("./en_US/en_US.blogs.txt", "r") # read full blog file
+en_blogs <- readLines(con_en_blogs) # read entire file
+close(con_en_blogs) # close connection
+
+con_en_news <- file("./en_US/en_US.news.txt", "r") 
+en_news <- readLines(con_en_news)
+close(con_en_news)
+
+con_en_twitter <- file("./en_US/en_US.twitter.txt", "r") 
+en_twitter <- readLines(con_en_twitter)
+close(con_en_twitter)
+
+set.seed(100)
+
+en_blogs_sample_num <- sample(en_blogs,1000,replace=F) # sample 1000 lines
+en_news_sample_num <- sample(en_news,1000,replace=F)
+en_twitter_sample_num <- sample(en_twitter,1000,replace=F)
+
+en_blogs_sample_word_count <- colSums(as.matrix(sapply(strsplit(en_blogs_sample_num, " "), length)))
+paste('# Words from from Blogs Sample:',formatC(en_blogs_sample_word_count, digits = 0, big.mark=',', format = 'f' ),'words')
+
+en_news_sample_word_count <- colSums(as.matrix(sapply(strsplit(en_news_sample_num, " "), length)))
+paste('# Words from from News Sample:',formatC(en_news_sample_word_count, digits = 0, big.mark=',', format = 'f' ),'words')
+
+en_twitter_sample_word_count <- colSums(as.matrix(sapply(strsplit(en_twitter_sample_num, " "), length)))
+paste('# Words from from Twitter Sample:',formatC(en_twitter_sample_word_count, digits = 0, big.mark=',', format = 'f' ),'words')
+
+# write the samples to new files 
+fileConn<-file("./en_US/samples/sample_en_US.blogs.txt") # create new file
+writeLines(en_blogs_sample_num, fileConn) # write the 1000 sampled lines
+close(fileConn) # close new file connection
+
+fileConn<-file("./en_US/samples/sample_en_US.news.txt")
+writeLines(en_news_sample_num, fileConn)
+close(fileConn)
+
+fileConn<-file("./en_US/samples/sample_en_US.twitter.txt")
+writeLines(en_twitter_sample_num, fileConn)
+close(fileConn)
+```
+
+#### Interpreting Word Counts
+To get a good understanding of the word counts by source, charts will be created below.   
+</br>
+
+### Exploratory Charts and Summary
+```{r charts, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
+library(ggplot2)
+# get each of the new sampled files
+con_en_blog_sample <- file("./en_US/samples/sample_en_US.blogs.txt", "r") # read sample blog file
+en_blog_sample <- readLines(con_en_blog_sample)
+close(con_en_blog_sample)
+
+con_en_news_sample <- file("./en_US/samples/sample_en_US.news.txt", "r") # read sample news file
+en_news_sample <- readLines(con_en_news_sample)
+close(con_en_news_sample)
+
+con_en_twitter_sample <- file("./en_US/samples/sample_en_US.twitter.txt", "r") # read sample twitter file
+en_twitter_sample <- readLines(con_en_twitter_sample)
+close(con_en_twitter_sample)
+
+# plot word count for each of the 1000 samples
+en_blog_word_count <- sapply(strsplit(en_blog_sample, " "), length)
+blog_word_count_chart <- qplot(en_blog_word_count, main = "Blog Word Count", xlab = "# of words", ylab = "frequency") + xlim (0, 100)
+
+en_news_word_count <- sapply(strsplit(en_news_sample, " "), length)
+news_word_count_chart <- qplot(en_news_word_count, main = "News Word Count", xlab = "# of words", ylab = "frequency") + xlim (0, 100)
+
+en_twitter_word_count <- sapply(strsplit(en_twitter_sample, " "), length)
+twitter_word_count_chart <- qplot(en_twitter_word_count, main = "Twitter Word Count", xlab = "# of words", ylab = "frequency") + xlim (0, 100)
+
+library("gridExtra")
+grid.arrange(blog_word_count_chart, news_word_count_chart, twitter_word_count_chart)
+
+# to summarize words counts
+summary(en_blog_word_count)
+summary(en_news_word_count)
+summary(en_twitter_word_count)
+
+```
+
+#### Interpreting the Charts 
+As shown in charts and summaries above, the word count is much different for each source.  This is expected considering as Twitter limits each tweet to 155 characters or less, therefore a mean of 12 words.  Blog post and news stores are more similar to each other, with blogs having a mean of 41 words, and news stories 35 words.  One key difference however is that blogs have smaller median than news, so would imply that some blogs have a much larger word count, skewing the mean to a larger value.  
+</br>
+
+### Creating the Corpus and Initial Review
+```{r corpus, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
+# compbine all three samples for corpus
+en_samples <- rbind(en_blog_sample, en_news_sample, en_twitter_sample)
+set.seed(123)
+en_samples2 <- sample(en_samples, 50000,replace=F)
+
+library(tm)
+my_corpus <- Corpus(VectorSource(en_samples2))
+# following steps clean the corpus
+my_corpus <- tm_map(my_corpus, removeNumbers)
+my_corpus <- tm_map(my_corpus, removePunctuation)
+my_corpus <- tm_map(my_corpus, removeWords, stopwords("english"))
+my_corpus <- tm_map(my_corpus, content_transformer(tolower))
+my_corpus <- tm_map(my_corpus, stripWhitespace)
+#my_corpus <- tm_map(my_corpus, stemDocument) # removes "es", "ed", and "s", etc
+corpus_dataframe<-data.frame(text=unlist(sapply(my_corpus, `[`, "content")), 
+                      stringsAsFactors=F)
+
+# create a documnet term matrix
+dtm <- DocumentTermMatrix(my_corpus)
+dim(dtm)
+# of the 3,000 blogs, new articles, and tweets, we have 13,819 unique words
+freq <- colSums(as.matrix(dtm))
+ord <- order(freq)
+freq[tail(ord,30)] # top 30 words
+head(table(freq), 15)  # over 8k of the 13,819 words occur 1 time
+table_word_count <- table(freq) # table of count of words
+barplot(table_word_count, main ="Freq of Words", ylab ="unique words", xlab ="freq of word", col = "blue")
+```
+
+#### Interpreting the Corpus
+After cleaning up the data (removing numbers, punctuation, stopwords, transforming to lowercase, and stripping whitespace), there are 13,819 unique words in the 3,000 samples of blogs, news, and tweets.  Of those words, 59% occur just one time.  Leaving with over 40% occuring more than once.  The highest frequency word is "the" occuring 511 times, followed by "will" 306 times, and "said" 304 times.  
+</br>
+
+### Creating the Wordpairs and Initial Review
+```{r wordpairs, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
+# word pairs
+library(tm); 
+BigramTokenizer <-
+    function(x)
+        unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+
+tdm_pairs <- DocumentTermMatrix(my_corpus, control = list(tokenize = BigramTokenizer))
+tdm_pairs <- removeSparseTerms(tdm_pairs, 0.9999) #98% sparsity
+freq_pairs <- colSums(as.matrix(tdm_pairs))
+freq_pairs
+ord <- order(freq_pairs)
+freq_pairs[tail(ord,30)] # top 30 word pairs
+head(table(freq_pairs), 15) 
+table_word_count_pairs <- table(freq_pairs) # table of count of words
+barplot(table_word_count_pairs, main ="Freq of Word Pairs", ylab ="word pair", xlab ="freq of word pairs", col = "green")
+
+bigram_index <- do.call(rbind, strsplit(paste(names(top_bigram), top_bigram), " "))
+
+```
+
+#### Interpreting Word Pairs
+Of the 3,000 samples of blogs, news, and tweets, producting over 46,000 combination of word pairs of 2. Looking at these pairs of words, "i know" occurred the most with 46 instances, followed by "i dont", and "i think".  
+
+</br>
+
+#### Next Steps
+Base on the initial review of the data, it certainly is sufficient to build out a prediction algorithm and final product of a Shiny App.  The goal is to use the sample data created to refine a prediciton model using word pairs and also a comination of words that do not occur in the corpus.  Initial thoughts on the Shiny app would allow a user to enter text, and as they are entering, would prefill that word and suggest another.   
+
+</br>
+</br>
