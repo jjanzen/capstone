@@ -387,16 +387,94 @@ test_fourgram <- predict.next.word(c("after", "the", "first"), fourgram_index)
 head(test_fourgram,25)
 test_fourgram[1,][1]
 as.character(test_fourgram[1,][1]) # top word output as text
-1 - give x
-2- financial x
-3 - morning x
-4 stress
-5 picture
-6 account x
-7 hand
-8 top
-9 outside
-10 moveis
+```
+
+
+```{r backoff, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
+setwd("~/JHDataScience/capstone/final")
+load("./en_US/ngrams/bigram_index.RData")
+load("./en_US/ngrams/trigram_index_small.RData")
+load("./en_US/ngrams/fourgram_index.RData")
+
+# same as above but using backoff method
+predict.next.word.backoff <- function(word){
+    ngram_df <- data.frame(predicted=character(), count = numeric(), stringsAsFactors=FALSE)
+    word_match_one <- word[1]
+    word_match_two <- word[2]
+    word_match_three <- word[3]
+    #print (is.na(word_match_three))
+    #print (word_match_three)
+    if(!is.na(word_match_three)){
+       print ("word 3 not null")
+       col_ng_matrix <- nrow(fourgram_index)
+        cond_three <- c(word_match_one == fourgram_index[,1] & word_match_two == fourgram_index[,2] 
+        & word_match_three == fourgram_index[,3])
+        for (i in 1:col_ng_matrix){
+            if (cond_three[i]){
+                fourth_word <- fourgram_index[,4][i]
+                count_word <- fourgram_index[,5][i]
+                matched_factor <- structure(c(fourth_word, count_word), .Names = c("predicted", "count"))
+                ngram_df[i,] <- as.list(matched_factor)
+                } } 
+                if(nrow(ngram_df)<1){  print ("df fourgram is null")
+                                       predict.next.word.backoff(c(word_match_one, word_match_two))}else{
+                            ngram_df <- transform(ngram_df, count = as.numeric(count))
+                            return (ngram_df[order(ngram_df$count, decreasing = TRUE),])  
+                                       }}  
+    else if(!is.na(word_match_two)){
+        print ("word 2 not null")
+        col_ng_matrix <- nrow(trigram_index)
+        cond_two <- c(word_match_one == trigram_index[,1] & word_match_two == trigram_index[,2])
+        for (i in 1:col_ng_matrix){
+            if (cond_two[i]){
+                third_word <- trigram_index[,3][i]
+                count_word <- trigram_index[,4][i]
+                matched_factor <- structure(c(third_word, count_word), .Names = c("predicted", "count"))
+                ngram_df[i,] <- as.list(matched_factor)
+                } } 
+                if(nrow(ngram_df)<1){  print ("df trigram is null")
+                                       predict.next.word.backoff(c(word_match_one))}else{
+                        ngram_df <- transform(ngram_df, count = as.numeric(count))
+                        return (ngram_df[order(ngram_df$count, decreasing = TRUE),])  
+                                       }}  
+    else {
+        print ("word 1 not null")
+        col_ng_matrix <- nrow(bigram_index)      
+        cond_one <- c(word_match_one == bigram_index[,1])
+        for (i in 1:col_ng_matrix){
+            if (cond_one[i]){
+                second_word <- bigram_index[,2][i]
+                count_word <- bigram_index[,3][i]
+                matched_factor <- structure(c(second_word, count_word), .Names = c("predicted", "count"))
+                ngram_df[i,] <- as.list(matched_factor)
+                } } 
+        if(nrow(ngram_df)<1){  print ("df bigram is null")   }else {
+                ngram_df <- transform(ngram_df, count = as.numeric(count))
+                return (ngram_df[order(ngram_df$count, decreasing = TRUE),])  
+        }}   
+    #ngram_df <- transform(ngram_df, count = as.numeric(count))
+    #return (ngram_df[order(ngram_df$count, decreasing = TRUE),])  
+    }
+
+net <- data.frame(predicted=character(), count = numeric(), stringsAsFactors=FALSE)
+if(nrow(net)<1){  print ("df is null")   }
+
+system.time(predict.next.word.backoff(c("abandon")))
+test_bigram <- predict.next.word.backoff(c("fuck"))
+class(test_bigram)
+head(test_bigram, 150)
+test_bigram[1][1,] # top word
+
+system.time(predict.next.word.backoff(c("after", "the")))
+test_trigram <- predict.next.word.backoff(c("after", "theeeee"))
+head(test_trigram,25)
+test_trigram[1,][1]
+
+system.time(predict.next.word.backoff(c("after", "the", "first")))
+test_fourgram <- predict.next.word.backoff(c("after", "the", "firsty"))
+head(test_fourgram,25)
+test_fourgram[1,][1]
+as.character(test_fourgram[1,][1]) # top word output as text
 
 ```
 
