@@ -219,7 +219,6 @@ my_corpus <- tm_map(my_corpus, stripWhitespace)
 #my_corpus <- my_corpus_copy
 
 #install.packages("SnowballC")
-library(SnowballC)
 # Remove profanity 
 # http://www.cs.cmu.edu/~biglou/resources/bad-words.txt
 #bad_words <- file("./en_US/bad-words.txt", "r")
@@ -232,6 +231,7 @@ profanity_path <-paste("./en_US/bad-words.txt" ,sep="")
 my_corpus <- tm_map(my_corpus, removeWords, profanity_path, mc.cores=1)
 save(my_corpus, file = "./en_US/ngrams/my_corpus.RData")
 #### prediction function (after corpus create, start here)
+library(SnowballC)
 library(tm); 
 library(slam)  # used for rollup function #http://stackoverflow.com/questions/21921422/row-sum-for-large-term-document-matrix-simple-triplet-matrix-tm-package
 bigramTokenizer <-
@@ -270,15 +270,16 @@ tdm_bigram.matrix <- as.matrix(top_bigram)
 
 tdm_trigram <- TermDocumentMatrix(my_corpus, control = list(tokenize = trigramTokenizer))
 save(tdm_trigram, file = "./en_US/ngrams/tdm_trigram.RData")
-tdm_trigram <- removeSparseTerms(tdm_trigram, 0.99999) #98% sparsity
-tdm_trigram_test <- removeSparseTerms(tdm_trigram, 0.9999) #98% sparsity
+tdm_trigram <- removeSparseTerms(tdm_trigram, 0.99999) # sparsity
+tdm_trigram_test <- removeSparseTerms(tdm_trigram, 0.9999) # sparsity
 top_trigram <- rollup(tdm_trigram_test, 2, na.rm=TRUE, FUN = sum)
 tdm_trigram.matrix <- as.matrix(top_trigram)
 tdm_trigram_test
 
 tdm_fourgram <- TermDocumentMatrix(my_corpus, control = list(tokenize = fourgramTokenizer))
 save(tdm_fourgram, file = "./en_US/ngrams/tdm_fourgram.RData")
-tdm_fourgram <- removeSparseTerms(tdm_fourgram, 0.99999) #98% sparsity
+load("./en_US/ngrams/tdm_fourgram.RData")
+tdm_fourgram <- removeSparseTerms(tdm_fourgram, 0.99995) # was at 0.99999
 top_fourgram <- rollup(tdm_fourgram, 2, na.rm=TRUE, FUN = sum)
 tdm_fourgram
 tdm_fourgram.matrix <- as.matrix(top_fourgram)
@@ -312,13 +313,13 @@ head(fourgram_index)
 #copy_fourgram <- fourgram_index
 save(bigram_index, file = "./en_US/ngrams/bigram_index.RData")
 save(trigram_index, file = "./en_US/ngrams/trigram_index_small.RData")
-save(fourgram_index, file = "./en_US/ngrams/fourgram_index.RData")
+save(fourgram_index, file = "./en_US/ngrams/fourgram_index_small.RData")
 
 ## start here 8/15/15
 setwd("~/JHDataScience/capstone/final")
 load("./en_US/ngrams/bigram_index.RData")
 load("./en_US/ngrams/trigram_index_small.RData")
-load("./en_US/ngrams/fourgram_index.RData")
+load("./en_US/ngrams/fourgram_index_small.RData")
 head(bigram_index)
 head(trigram_index)
 head(fourgram_index)
@@ -392,7 +393,7 @@ as.character(test_fourgram[1,][1]) # top word output as text
 
 ```{r backoff, message=FALSE, warning=FALSE, eval=TRUE, include=TRUE}
 setwd("~/JHDataScience/capstone/final")
-load("./en_US/ngrams/bigram_index.RData")
+load("./en_US/ngrams/bigram_index_small.RData")
 load("./en_US/ngrams/trigram_index_small.RData")
 load("./en_US/ngrams/fourgram_index.RData")
 
@@ -400,8 +401,11 @@ load("./en_US/ngrams/fourgram_index.RData")
 predict.next.word.backoff <- function(word){
     ngram_df <- data.frame(predicted=character(), count = numeric(), stringsAsFactors=FALSE)
     word_match_one <- word[1]
+    print (word_match_one)
     word_match_two <- word[2]
+    print (word_match_two)
     word_match_three <- word[3]
+    print (word_match_three)
     #print (is.na(word_match_three))
     #print (word_match_three)
     if(!is.na(word_match_three)){
@@ -417,7 +421,7 @@ predict.next.word.backoff <- function(word){
                 ngram_df[i,] <- as.list(matched_factor)
                 } } 
                 if(nrow(ngram_df)<1){  print ("df fourgram is null")
-                                       predict.next.word.backoff(c(word_match_one, word_match_two))}else{
+                                       predict.next.word.backoff(c(word_match_two, word_match_three))}else{
                             ngram_df <- transform(ngram_df, count = as.numeric(count))
                             return (ngram_df[order(ngram_df$count, decreasing = TRUE),])  
                                        }}  
@@ -433,7 +437,8 @@ predict.next.word.backoff <- function(word){
                 ngram_df[i,] <- as.list(matched_factor)
                 } } 
                 if(nrow(ngram_df)<1){  print ("df trigram is null")
-                                       predict.next.word.backoff(c(word_match_one))}else{
+                                       print (word_match_three)
+                                       predict.next.word.backoff(c(word_match_two))}else{
                         ngram_df <- transform(ngram_df, count = as.numeric(count))
                         return (ngram_df[order(ngram_df$count, decreasing = TRUE),])  
                                        }}  
@@ -442,7 +447,7 @@ predict.next.word.backoff <- function(word){
         col_ng_matrix <- nrow(bigram_index)      
         cond_one <- c(word_match_one == bigram_index[,1])
         for (i in 1:col_ng_matrix){
-            if (cond_one[i]){
+            if (cond_one[i] && !is.na(cond_one[i])){
                 second_word <- bigram_index[,2][i]
                 count_word <- bigram_index[,3][i]
                 matched_factor <- structure(c(second_word, count_word), .Names = c("predicted", "count"))
@@ -459,23 +464,21 @@ predict.next.word.backoff <- function(word){
 net <- data.frame(predicted=character(), count = numeric(), stringsAsFactors=FALSE)
 if(nrow(net)<1){  print ("df is null")   }
 
-system.time(predict.next.word.backoff(c("abandon")))
-test_bigram <- predict.next.word.backoff(c("fuck"))
-class(test_bigram)
-head(test_bigram, 150)
+system.time(predict.next.word.backoff(c("can")))
+test_bigram <- predict.next.word.backoff(c("saturday"))
+head(test_bigram, 10)
 test_bigram[1][1,] # top word
 
 system.time(predict.next.word.backoff(c("after", "the")))
-test_trigram <- predict.next.word.backoff(c("after", "theeeee"))
-head(test_trigram,25)
+test_trigram <- predict.next.word.backoff(c("last", "saturday"))
+head(test_trigram,10)
 test_trigram[1,][1]
 
 system.time(predict.next.word.backoff(c("after", "the", "first")))
-test_fourgram <- predict.next.word.backoff(c("after", "the", "firsty"))
-head(test_fourgram,25)
+test_fourgram <- predict.next.word.backoff(c("can", "not", "saturday"))
+head(test_fourgram,10)
 test_fourgram[1,][1]
 as.character(test_fourgram[1,][1]) # top word output as text
-
 ```
 
 ```{r wordpairs, message=FALSE, warning=FALSE, eval=FALSE, include=FALSE}

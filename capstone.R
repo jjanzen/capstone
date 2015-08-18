@@ -23,6 +23,13 @@ setwd("~/JHDataScience/capstone/final")
 list.files(path=".")
 
 ## task 1 ***************************************************
+
+Three data sets (news, blogs, twitter) were provided. 
+Command line operations (e.g., cat en_US.twitter.txt | wc -l) were used to quickly explore basic 
+dimensions of the data sets. The twitter data set contains 2,360,148 lines and 30,374,206 words. 
+The news data set contains 10,10,242 lines and 34,372,720 words. 
+The blogs data set contains 899,288 lines and 37,334,690.
+
 # US blogs
 con_en_blogs <- file("./en_US/en_US.blogs.txt", "r") # read full blog file
 en_blogs_limit <- readLines(con_en_blogs, 1000) # get top 1000 lines
